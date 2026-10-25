@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.1.0';
+  const VERSION = '1.2.0';
   const KEY = 'shifts.v1';
   const TYPES = ['morning', 'afternoon', 'night', 'day', 'off'];
   const SWATCHES = ['#FF9F0A', '#FFC400', '#FF453A', '#FF375F', '#BF5AF2', '#5E5CE6', '#0A84FF', '#32ADE6', '#30D158', '#8E8E93'];
@@ -13,6 +13,7 @@
 
   const cyc = (s) => [...s].map((c) => ({ M: 'morning', A: 'afternoon', N: 'night', D: 'day', '-': 'off' }[c]));
   const PRESETS = [
+    { id: '12_24', cycle: cyc('DN--') },
     { id: '4on4off', cycle: cyc('DDDD----') },
     { id: '4on4off_dn', cycle: cyc('DDNN----') },
     { id: 'pitman', cycle: cyc('DD--DDD--DD---') },
@@ -42,7 +43,7 @@
       v: 1,
       people: [],
       activeId: null,
-      settings: { theme: 'auto', lang: detectLang(), weekStart: 1, colors: { ...DEFAULT_COLORS } }
+      settings: { theme: 'auto', lang: detectLang(), langDone: false, weekStart: 1, colors: { ...DEFAULT_COLORS } }
     };
   }
 
@@ -601,9 +602,24 @@
     </div>`;
   }
 
+  function langSheet() {
+    const rows = Object.entries(window.I18N).map(([code, l]) => `
+      <button class="row tap" role="radio" aria-checked="${code === state.settings.lang}" data-act="lang" data-v="${code}">
+        <span class="row-main"><span class="row-title">${esc(l.name)}</span></span>
+        ${code === state.settings.lang ? `<span class="tick">${UI_ICONS.check}</span>` : ''}</button>`).join('');
+    return `${sheetBar('', t('language'), '')}
+    <div class="body">
+      <section class="group" role="radiogroup">${rows}</section>
+      <button class="primary" data-act="lang-continue">${t('continue')}</button>
+    </div>`;
+  }
+
+  const sheetLocked = () => { const top = ui.stack[ui.stack.length - 1]; return !!top && (top.type === 'lang' || (top.type === 'pattern' && draft && !draft.personId && state.people.length === 0)); };
+
   function currentSheetHtml() {
     const top = ui.stack[ui.stack.length - 1];
     if (!top) return '';
+    if (top.type === 'lang') return langSheet();
     if (top.type === 'day') return daySheet(top.d);
     if (top.type === 'person') return personSheet(top.id);
     if (top.type === 'pattern') return patternSheet();
@@ -732,10 +748,11 @@
       case 'override-reset': delete active().overrides[el.dataset.d]; save(); render(); break;
       case 'theme': state.settings.theme = v; save(); render(); break;
       case 'week': state.settings.weekStart = Number(v); save(); render(); break;
+      case 'lang-continue': state.settings.langDone = true; save(); draft = newDraft(); ui.stack = [{ type: 'pattern' }]; renderSheet(); break;
       case 'lang': state.settings.lang = v; save(); render(); break;
       case 'color': state.settings.colors[el.dataset.type] = el.dataset.v; save(); render(); break;
       case 'sheet-close': ui.stack = []; draft = null; renderSheet(); render(); break;
-      case 'sheet-dismiss': if (!(draft && !draft.personId && state.people.length === 0)) { ui.stack = []; draft = null; renderSheet(); } break;
+      case 'sheet-dismiss': if (!sheetLocked()) { ui.stack = []; draft = null; renderSheet(); } break;
       case 'back': draft = null; popSheet(); break;
       case 'person-edit': openSheet({ type: 'person', id: el.dataset.id }); break;
       case 'person-color': person(ui.stack[ui.stack.length - 1].id).color = v; save(); render(); break;
@@ -844,7 +861,7 @@
   });
 
   document.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Escape' && ui.stack.length && !(draft && !draft.personId && state.people.length === 0)) {
+    if (ev.key === 'Escape' && ui.stack.length && !sheetLocked()) {
       ui.stack = []; draft = null; renderSheet(); render();
     }
   });
@@ -898,7 +915,9 @@
     if (document.visibilityState === 'visible' && ui.today !== todayStr()) { ui.today = todayStr(); render(); }
   });
 
-  if (!state.people.length) { draft = newDraft(); ui.stack = [{ type: 'pattern' }]; }
+  if (!state.people.length) {
+    if (state.settings.langDone) { draft = newDraft(); ui.stack = [{ type: 'pattern' }]; } else ui.stack = [{ type: 'lang' }];
+  }
   render();
 
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {

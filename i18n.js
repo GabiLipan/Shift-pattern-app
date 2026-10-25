@@ -12,6 +12,7 @@ window.I18N = {
     name: 'English',
     s: {
       app_name: 'Shifts',
+      continue: 'Continue',
       closed: 'Closed',
       closed_weekly: 'Weekly closure',
       holiday: 'Holiday',
@@ -127,6 +128,8 @@ window.I18N = {
       version: 'Version {v}',
 
       preset_4on4off: '4 on, 4 off',
+      preset_12_24: '12/24',
+      preset_12_24_desc: 'Day shift, night shift, then two days off',
       preset_4on4off_desc: 'Four day shifts, then four days off',
       preset_4on4off_dn: '2 days, 2 nights, 4 off',
       preset_4on4off_dn_desc: 'Two day shifts, two night shifts, four days off',
@@ -145,6 +148,7 @@ window.I18N = {
     name: 'Română',
     s: {
       app_name: 'Ture',
+      continue: 'Continuă',
       closed: 'Închis',
       closed_weekly: 'Închidere săptămânală',
       holiday: 'Sărbătoare',
@@ -264,6 +268,8 @@ window.I18N = {
       version: 'Versiunea {v}',
 
       preset_4on4off: '4 lucrate, 4 libere',
+      preset_12_24: '12/24',
+      preset_12_24_desc: 'Tură de zi, tură de noapte, apoi două zile libere',
       preset_4on4off_desc: 'Patru ture de zi, apoi patru zile libere',
       preset_4on4off_dn: '2 zi, 2 noapte, 4 libere',
       preset_4on4off_dn_desc: 'Două ture de zi, două de noapte, patru zile libere',

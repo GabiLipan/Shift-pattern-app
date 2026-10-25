@@ -261,3 +261,6 @@ input[type="date"].field { min-height: 34px; }
   .sheet, .scrim { transition: none; }
   .day:active, .cell:active { transform: none; }
 }
+
+.primary { display: block; width: 100%; margin-top: 24px; height: 50px; border-radius: 14px; background: var(--accent); color: #fff; font-size: 17px; font-weight: 600; text-align: center; }
+.primary:active { opacity: 0.8; }
