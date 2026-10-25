@@ -240,6 +240,8 @@ input[type="date"].field { min-height: 34px; }
 .opt span { max-width: 100%; overflow-wrap: anywhere; }
 .opt.on { outline: 2px solid var(--accent); color: var(--fg); }
 
+.after-opts { margin-top: 16px; }
+
 /* pattern editor */
 .radio .row-main { padding-block: 2px; }
 .cells { display: grid; grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); gap: 6px; }

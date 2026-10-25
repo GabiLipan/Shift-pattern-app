@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.5.0';
+  const VERSION = '1.5.1';
   const KEY = 'shifts.v1';
   const TYPES = ['morning', 'afternoon', 'night', 'day', 'off'];
   const SWATCHES = ['#FF9F0A', '#FFC400', '#FF453A', '#FF375F', '#BF5AF2', '#5E5CE6', '#0A84FF', '#32ADE6', '#30D158', '#8E8E93'];
@@ -396,7 +396,11 @@
       </div>
       <h3 class="gh">${t('change_day')}</h3>
       <div class="opts">${opts}</div>
-      ${sh.over ? `<section class="group"><button class="row tap accent center" data-act="override-reset" data-d="${s}"><span class="row-main"><span class="row-title">${t('use_pattern')}</span></span></button></section>` : ''}
+      ${sh.over ? `<section class="group after-opts">
+        <button class="row tap accent center" data-act="override-reset" data-d="${s}"><span class="row-main"><span class="row-title">${t('use_pattern')}</span></span></button>
+        ${sh.entry && sh.entry.cycle.includes(sh.type) ? `<button class="row tap accent center" data-act="restart" data-d="${s}"><span class="row-main"><span class="row-title">${t('restart_pattern')}</span></span></button>` : ''}
+      </section>
+      ${sh.entry && sh.entry.cycle.includes(sh.type) ? `<p class="foot left">${t('restart_hint', { shift: shiftName(sh.type) })}</p>` : ''}` : ''}
     </div>`;
   }
 
@@ -751,6 +755,28 @@
         const p = active();
         const base = shiftOn(p, el.dataset.d).auto;
         if (v === base) delete p.overrides[el.dataset.d]; else p.overrides[el.dataset.d] = v;
+        save(); render(); break;
+      }
+      case 'restart': {
+        const p = active();
+        const s = el.dataset.d;
+        const sh = shiftOn(p, s);
+        const e = sh.entry;
+        if (!e || !sh.over) break;
+        const n = e.cycle.length;
+        const cur = (((dayNum(s) - dayNum(e.from) + e.offset) % n) + n) % n;
+        let best = -1;
+        let gap = Infinity;
+        e.cycle.forEach((c, i) => {
+          if (c !== sh.type) return;
+          const d = Math.min((i - cur + n) % n, (cur - i + n) % n);
+          if (d < gap) { gap = d; best = i; }
+        });
+        if (best < 0) break;
+        p.schedules = p.schedules.filter((x) => x.from !== s);
+        p.schedules.push({ id: uid(), from: s, preset: e.preset, name: e.name, cycle: e.cycle.slice(), offset: best });
+        p.schedules.sort((x, y) => (x.from < y.from ? -1 : 1));
+        delete p.overrides[s];
         save(); render(); break;
       }
       case 'override-reset': delete active().overrides[el.dataset.d]; save(); render(); break;

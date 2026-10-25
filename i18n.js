@@ -103,7 +103,9 @@ window.I18N = {
       choose_pattern: 'Choose a pattern',
 
       change_day: 'Change this day',
-      use_pattern: 'Use pattern',
+      use_pattern: 'Reset to schedule',
+      restart_pattern: 'Restart pattern from this day',
+      restart_hint: 'The pattern carries on from here with this day as {shift}. Earlier days stay as they are.',
 
       appearance: 'Appearance',
       theme: 'Theme',
@@ -245,7 +247,9 @@ window.I18N = {
       choose_pattern: 'Alege un program',
 
       change_day: 'Schimbă această zi',
-      use_pattern: 'Din program',
+      use_pattern: 'Resetează după program',
+      restart_pattern: 'Repornește programul de la această zi',
+      restart_hint: 'Programul continuă de aici, iar această zi devine: {shift}. Zilele anterioare rămân neschimbate.',
 
       appearance: 'Aspect',
       theme: 'Temă',
