@@ -1,7 +1,8 @@
 /* Offline cache. Everything is precached on install, then served from the cache
  * and refreshed quietly in the background. Bump CACHE when you change files so
- * old copies are cleared. */
-const CACHE = 'shifts-v1.3.0';
+ * old copies are cleared. Requests bypass the browser's HTTP cache so a new
+ * deploy is picked up straight away. */
+const CACHE = 'shifts-v1.3.1';
 const ASSETS = [
   './',
   'index.html',
@@ -17,7 +18,7 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => Promise.all(ASSETS.map((u) => c.add(new Request(u, { cache: 'reload' }))))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -34,7 +35,7 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(
     caches.open(CACHE).then(async (cache) => {
       const hit = await cache.match(req, { ignoreSearch: true });
-      const net = fetch(req).then((res) => {
+      const net = fetch(req, { cache: 'no-cache' }).then((res) => {
         if (res && res.ok) cache.put(req, res.clone());
         return res;
       }).catch(() => null);
