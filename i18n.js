@@ -129,7 +129,9 @@ window.I18N = {
 
       preset_4on4off: '4 on, 4 off',
       preset_12_24: '12/24',
-      preset_12_24_desc: 'Day shift, night shift, then two days off',
+      preset_12_24_desc: 'Day shift, night shift, each followed by 24 hours off',
+      preset_12_24_12_48: '12/24, 12/48',
+      preset_12_24_12_48_desc: 'Day shift, 24 hours off, night shift, 48 hours off',
       preset_4on4off_desc: 'Four day shifts, then four days off',
       preset_4on4off_dn: '2 days, 2 nights, 4 off',
       preset_4on4off_dn_desc: 'Two day shifts, two night shifts, four days off',
@@ -269,7 +271,9 @@ window.I18N = {
 
       preset_4on4off: '4 lucrate, 4 libere',
       preset_12_24: '12/24',
-      preset_12_24_desc: 'Tură de zi, tură de noapte, apoi două zile libere',
+      preset_12_24_desc: 'Tură de zi, tură de noapte, fiecare urmată de 24 de ore libere',
+      preset_12_24_12_48: '12/24, 12/48',
+      preset_12_24_12_48_desc: 'Tură de zi, 24 de ore libere, tură de noapte, 48 de ore libere',
       preset_4on4off_desc: 'Patru ture de zi, apoi patru zile libere',
       preset_4on4off_dn: '2 zi, 2 noapte, 4 libere',
       preset_4on4off_dn_desc: 'Două ture de zi, două de noapte, patru zile libere',

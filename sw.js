@@ -1,7 +1,7 @@
 /* Offline cache. Everything is precached on install, then served from the cache
  * and refreshed quietly in the background. Bump CACHE when you change files so
  * old copies are cleared. */
-const CACHE = 'shifts-v1.2.1';
+const CACHE = 'shifts-v1.2.2';
 const ASSETS = [
   './',
   'index.html',

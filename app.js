@@ -13,7 +13,8 @@
 
   const cyc = (s) => [...s].map((c) => ({ M: 'morning', A: 'afternoon', N: 'night', D: 'day', '-': 'off' }[c]));
   const PRESETS = [
-    { id: '12_24', cycle: cyc('DN--') },
+    { id: '12_24', cycle: cyc('DN-') },
+    { id: '12_24_12_48', cycle: cyc('DN--') },
     { id: '4on4off', cycle: cyc('DDDD----') },
     { id: '4on4off_dn', cycle: cyc('DDNN----') },
     { id: 'pitman', cycle: cyc('DD--DDD--DD---') },
@@ -55,7 +56,7 @@
       id: p.id || uid(),
       name: p.name || '',
       color: p.color || PERSON_COLORS[0],
-      schedules: (p.schedules || []).slice().sort((a, b) => (a.from < b.from ? -1 : 1)),
+      schedules: (p.schedules || []).map((e) => (e.preset === '12_24' && e.cycle && e.cycle.length === 4 ? { ...e, preset: '12_24_12_48' } : e)).slice().sort((a, b) => (a.from < b.from ? -1 : 1)),
       overrides: p.overrides || {},
       weekly: p.weekly || {},
       holidays: (p.holidays || []).slice().sort((a, b) => (a.fromDate < b.fromDate ? -1 : 1))
