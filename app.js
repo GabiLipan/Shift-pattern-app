@@ -1,13 +1,15 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.0';
+  const VERSION = '1.1.0';
   const KEY = 'shifts.v1';
   const TYPES = ['morning', 'afternoon', 'night', 'day', 'off'];
   const SWATCHES = ['#FF9F0A', '#FFC400', '#FF453A', '#FF375F', '#BF5AF2', '#5E5CE6', '#0A84FF', '#32ADE6', '#30D158', '#8E8E93'];
   const DEFAULT_COLORS = { morning: '#FF9F0A', afternoon: '#FF375F', night: '#5E5CE6', day: '#FFC400' };
   const PERSON_COLORS = ['#0A84FF', '#30D158', '#BF5AF2', '#FF9F0A', '#FF375F', '#32ADE6'];
   const MAX_CYCLE = 56;
+  const RANK = { start: 0, morning: 0, day: 1, afternoon: 2, night: 3 };
+  const SLOT_ORDER = ['morning', 'day', 'afternoon', 'night'];
 
   const cyc = (s) => [...s].map((c) => ({ M: 'morning', A: 'afternoon', N: 'night', D: 'day', '-': 'off' }[c]));
   const PRESETS = [
@@ -53,7 +55,9 @@
       name: p.name || '',
       color: p.color || PERSON_COLORS[0],
       schedules: (p.schedules || []).slice().sort((a, b) => (a.from < b.from ? -1 : 1)),
-      overrides: p.overrides || {}
+      overrides: p.overrides || {},
+      weekly: p.weekly || {},
+      holidays: (p.holidays || []).slice().sort((a, b) => (a.fromDate < b.fromDate ? -1 : 1))
     }));
     if (!out.people.some((p) => p.id === out.activeId)) out.activeId = out.people[0] ? out.people[0].id : null;
     return out;
@@ -81,6 +85,7 @@
     today: todayStr()
   };
   let draft = null;
+  let hdraft = null;
 
   const person = (id) => state.people.find((p) => p.id === id);
   const active = () => person(state.activeId);
@@ -128,8 +133,7 @@
   };
 
   /* ---------- schedule logic ---------- */
-  function shiftOn(p, s) {
-    const o = p.overrides[s];
+  function patternType(p, s) {
     let e = null;
     for (const x of p.schedules) { if (x.from <= s) e = x; else break; }
     let base = null;
@@ -137,7 +141,25 @@
       const n = e.cycle.length;
       base = e.cycle[((((dayNum(s) - dayNum(e.from) + e.offset) % n) + n) % n)];
     }
-    return { type: o || base, base, entry: e, over: !!o && o !== base };
+    return { base, entry: e };
+  }
+
+  const pos = (dateStr, slot) => dayNum(dateStr) * 4 + (RANK[slot] || 0);
+
+  function closedInfo(p, s, type) {
+    const wk = p.weekly[parse(s).getDay()];
+    if (wk && wk.includes(type)) return { by: 'weekly' };
+    const at = dayNum(s) * 4 + RANK[type];
+    const h = p.holidays.find((x) => at >= pos(x.fromDate, x.fromSlot) && at < pos(x.toDate, x.toSlot));
+    return h ? { by: 'holiday', name: h.name } : null;
+  }
+
+  function shiftOn(p, s) {
+    const { base, entry } = patternType(p, s);
+    const o = p.overrides[s];
+    const cl = base && base !== 'off' ? closedInfo(p, s, base) : null;
+    const auto = cl ? 'off' : base;
+    return { type: o || auto, base, auto, entry, closed: !o && cl ? cl : null, over: !!o && o !== auto };
   }
 
   function entryName(e) {
@@ -194,10 +216,11 @@
     const s = ymd(d);
     const sh = shiftOn(p, s);
     const work = sh.type && sh.type !== 'off';
-    const cls = ['day', inMonth ? '' : 'out', s === ui.today ? 'today' : '', work ? 'work' : '', sh.over ? 'over' : ''].join(' ');
-    const label = `${fmt({ weekday: 'long', day: 'numeric', month: 'long' }).format(d)}, ${sh.type ? shiftName(sh.type) : t('no_pattern')}`;
+    const cls = ['day', inMonth ? '' : 'out', s === ui.today ? 'today' : '', work ? 'work' : '', sh.closed ? 'closed' : '', sh.over ? 'over' : ''].join(' ');
+    const what = sh.closed ? `${t('closed')}, ${shiftName(sh.base)}` : sh.type ? shiftName(sh.type) : t('no_pattern');
+    const label = `${fmt({ weekday: 'long', day: 'numeric', month: 'long' }).format(d)}, ${what}`;
     return `<button class="${cls}" style="${work ? `--c:${state.settings.colors[sh.type]}` : ''}" data-act="day" data-d="${s}" aria-label="${esc(label)}">
-      <span class="n">${d.getDate()}</span>${work ? icon(sh.type, 22) : ''}</button>`;
+      <span class="n">${d.getDate()}</span>${work ? icon(sh.type, 22) : sh.closed ? icon(sh.base, 22, 'var(--fg-3)') : ''}</button>`;
   }
 
   function renderCalendar() {
@@ -223,9 +246,9 @@
       const now = shiftOn(p, ui.today);
       const nx = nextShift(p, ymd(addDays(parse(ui.today), 1)));
       const todayRow = `<div class="row">
-          <span class="row-icon">${now.type ? icon(now.type, 26) : ''}</span>
+          <span class="row-icon">${now.closed ? icon(now.base, 26, 'var(--fg-3)') : now.type ? icon(now.type, 26) : ''}</span>
           <span class="row-main"><span class="row-title">${t('today')}</span></span>
-          <span class="row-val">${now.type ? shiftName(now.type) : t('no_pattern')}</span></div>`;
+          <span class="row-val">${now.closed ? t('closed') : now.type ? shiftName(now.type) : t('no_pattern')}</span></div>`;
       let nextRow;
       if (nx) {
         const rel = new Intl.RelativeTimeFormat(state.settings.lang, { numeric: 'auto' }).format(nx.i, 'day');
@@ -240,7 +263,8 @@
       summary = `<section class="group" aria-label="${t('up_next')}">${todayRow}${nextRow}</section>`;
     }
 
-    const legend = p ? usedTypes(p).concat(['off']).map((x) => `<span class="lg">${icon(x, 18)}${shiftName(x)}</span>`).join('') : '';
+    const hasClosures = p && (p.holidays.length || Object.values(p.weekly).some((x) => x.length));
+    const legend = p ? usedTypes(p).concat(['off']).map((x) => `<span class="lg">${icon(x, 18)}${shiftName(x)}</span>`).join('') + (hasClosures ? `<span class="lg"><i class="lg-closed"></i>${t('closed')}</span>` : '') : '';
 
     return `
     <header class="head">
@@ -313,6 +337,12 @@
         ${seg('week', [[1, t('mon_short')], [0, t('sun_short')], [6, t('sat_short')]], st.weekStart)}</div>
     </section>
 
+    <h2 class="gh">${t('closures')}</h2>
+    <section class="group">${state.people.map((p) => `<button class="row tap" data-act="closures-open" data-id="${p.id}">
+        <span class="row-icon">${avatar(p, 30)}</span>
+        <span class="row-main"><span class="row-title">${esc(p.name || '?')}</span><span class="row-sub">${closuresSummary(p)}</span></span>
+        <span class="chev">${UI_ICONS.chev}</span></button>`).join('')}</section>
+
     <h2 class="gh">${t('language')}</h2>
     <section class="group" role="radiogroup">${langs}</section>
 
@@ -346,15 +376,15 @@
     const sh = shiftOn(p, s);
     const d = parse(s);
     const opts = TYPES.map((type) => `
-      <button class="opt ${sh.type === type ? 'on' : ''}" data-act="override" data-v="${type}" data-d="${s}">
+      <button class="opt ${!sh.closed && sh.type === type ? 'on' : ''}" data-act="override" data-v="${type}" data-d="${s}">
         ${icon(type, 26)}<span>${shiftName(type)}</span></button>`).join('');
     return `${sheetBar('', cap(fmt({ weekday: 'long' }).format(d)), `<button class="link strong" data-act="sheet-close">${t('done')}</button>`)}
     <div class="body">
       <div class="hero">
-        <div class="hero-icon" style="--c:${sh.type && sh.type !== 'off' ? state.settings.colors[sh.type] : 'var(--fg-3)'}">${sh.type ? icon(sh.type, 44) : ''}</div>
+        <div class="hero-icon" style="--c:${sh.type && sh.type !== 'off' ? state.settings.colors[sh.type] : 'var(--fg-3)'}">${sh.closed ? icon(sh.base, 44, 'var(--fg-3)') : sh.type ? icon(sh.type, 44) : ''}</div>
         <div class="hero-date">${esc(fmt({ day: 'numeric', month: 'long', year: 'numeric' }).format(d))}</div>
-        <div class="hero-shift">${sh.type ? shiftName(sh.type) : t('no_pattern')}</div>
-        <div class="hero-sub">${sh.over ? t('changed_day') : sh.entry ? esc(entryName(sh.entry)) : ''}</div>
+        <div class="hero-shift">${sh.closed ? t('closed') : sh.type ? shiftName(sh.type) : t('no_pattern')}</div>
+        <div class="hero-sub">${sh.closed ? esc(`${shiftName(sh.base)} · ${sh.closed.by === 'weekly' ? t('closed_weekly') : sh.closed.name || t('holiday')}`) : sh.over ? t('changed_day') : sh.entry ? esc(entryName(sh.entry)) : ''}</div>
       </div>
       <h3 class="gh">${t('change_day')}</h3>
       <div class="opts">${opts}</div>
@@ -384,6 +414,10 @@
       <h3 class="gh">${t('patterns_history')}</h3>
       <section class="group">${entries}
         <button class="row tap accent" data-act="pattern-new"><span class="row-icon plus">${UI_ICONS.plus}</span><span class="row-main"><span class="row-title">${t('change_pattern')}</span></span></button>
+      </section>
+      <h3 class="gh">${t('closures')}</h3>
+      <section class="group">
+        <button class="row tap" data-act="closures-open" data-id="${p.id}"><span class="row-main"><span class="row-title">${t('closures')}</span><span class="row-sub">${closuresSummary(p)}</span></span><span class="chev">${UI_ICONS.chev}</span></button>
       </section>
       <section class="group gap">
         <button class="row tap danger center" data-act="person-delete"><span class="row-main"><span class="row-title">${ui.confirmDelete ? t('delete_confirm', { name: esc(p.name || '?') }) : t('delete_person')}</span></span></button>
@@ -456,12 +490,125 @@
     </div>`;
   }
 
+
+  /* ---------- closures ---------- */
+  function weeklyCount(p) { return Object.values(p.weekly).reduce((n, x) => n + x.length, 0); }
+
+  function closuresSummary(p) {
+    const w = weeklyCount(p);
+    const h = p.holidays.length;
+    const parts = [];
+    if (w) parts.push(tn('weekly_slots', w));
+    if (h) parts.push(tn('closures_count', h));
+    return parts.length ? parts.join(' · ') : t('no_closures');
+  }
+
+  function slotOptions(p, current) {
+    const used = usedTypes(p);
+    const list = (used.length ? used : SLOT_ORDER).slice();
+    if (current && current !== 'start' && !list.includes(current)) list.push(current);
+    list.sort((x, y) => RANK[x] - RANK[y]);
+    return ['start'].concat(list);
+  }
+  const slotLabel = (slot) => (slot === 'start' ? t('slot_start') : t(`slot_${slot}`));
+  const shortDate = (s) => cap(fmt({ weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).format(parse(s)));
+
+  function affectedCount(p, h) {
+    const a = pos(h.fromDate, h.fromSlot);
+    const b = pos(h.toDate, h.toSlot);
+    if (!(b > a)) return 0;
+    let n = 0;
+    const start = parse(h.fromDate);
+    for (let i = 0; i <= 800; i++) {
+      const s = ymd(addDays(start, i));
+      if (dayNum(s) > dayNum(h.toDate)) break;
+      const ty = patternType(p, s).base;
+      if (ty && ty !== 'off') { const at = dayNum(s) * 4 + RANK[ty]; if (at >= a && at < b) n++; }
+    }
+    return n;
+  }
+
+  function closuresSheet(id) {
+    const p = person(id);
+    if (!p) return '';
+    const w = state.settings.weekStart;
+    let cols = usedTypes(p);
+    Object.values(p.weekly).forEach((arr) => arr.forEach((x) => { if (!cols.includes(x)) cols.push(x); }));
+    if (!cols.length) cols = SLOT_ORDER.slice();
+    cols.sort((x, y) => RANK[x] - RANK[y]);
+    const head = cols.map((c) => `<span class="wm-h">${icon(c, 22)}<small>${shiftName(c)}</small></span>`).join('');
+    let rows = '';
+    for (let i = 0; i < 7; i++) {
+      const dow = (w + i) % 7;
+      const closed = p.weekly[dow] || [];
+      const name = cap(fmt({ weekday: 'long' }).format(new Date(2023, 0, 1 + dow, 12)));
+      rows += `<button class="wm-day" data-act="w-row" data-dow="${dow}">${esc(name)}</button>` + cols.map((c) => {
+        const on = closed.includes(c);
+        return `<button class="wm-cell ${on ? 'on' : ''}" data-act="w-cell" data-dow="${dow}" data-t="${c}" aria-pressed="${on}" aria-label="${esc(name)}, ${shiftName(c)}">${on ? '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 3l8 8M11 3l-8 8"/></svg>' : ''}</button>`;
+      }).join('');
+    }
+    const list = p.holidays.map((h) => `
+      <button class="row tap" data-act="h-edit" data-id="${h.id}">
+        <span class="row-main"><span class="row-title">${esc(h.name || t('closed'))}</span>
+        <span class="row-sub">${esc(shortDate(h.fromDate))} · ${slotLabel(h.fromSlot)}</span>
+        <span class="row-sub">→ ${esc(shortDate(h.toDate))} · ${slotLabel(h.toSlot)}</span></span>
+        <span class="chev">${UI_ICONS.chev}</span></button>`).join('');
+    const stacked = ui.stack.length > 1;
+    return `${sheetBar(stacked ? `<button class="link" data-act="pop">${t('back')}</button>` : '', t('closures'), `<button class="link strong" data-act="sheet-close">${t('done')}</button>`)}
+    <div class="body">
+      ${state.people.length > 1 ? `<p class="lead">${t('closures_for', { name: esc(p.name || '?') })}</p>` : ''}
+      <h3 class="gh">${t('every_week')}</h3>
+      <section class="group pad"><div class="wm" style="--cols:${cols.length}"><span></span>${head}${rows}</div></section>
+      <p class="foot left">${t('every_week_hint')}</p>
+      <h3 class="gh">${t('holidays_closures')}</h3>
+      <section class="group">${list}
+        <button class="row tap accent" data-act="h-new"><span class="row-icon plus">${UI_ICONS.plus}</span><span class="row-main"><span class="row-title">${t('add_closure')}</span></span></button>
+      </section>
+    </div>`;
+  }
+
+  function newHoliday(personId, h) {
+    if (h) return { ...h, personId };
+    const today = ui.today;
+    return { personId, id: null, name: '', fromDate: today, fromSlot: 'start', toDate: ymd(addDays(parse(today), 1)), toSlot: 'start' };
+  }
+
+  function holidaySheet() {
+    const h = hdraft;
+    const p = person(h.personId);
+    const valid = h.fromDate && h.toDate && pos(h.toDate, h.toSlot) > pos(h.fromDate, h.fromSlot);
+    const opt = (cur) => slotOptions(p, cur).map((sl) => `<option value="${sl}" ${sl === cur ? 'selected' : ''}>${slotLabel(sl)}</option>`).join('');
+    const n = valid ? affectedCount(p, h) : 0;
+    const summary = !valid ? `<span class="err">${t('invalid_range')}</span>` : n ? tn('affected', n) : t('affected_none');
+    return `${sheetBar(`<button class="link" data-act="pop-holiday">${t('cancel')}</button>`, h.id ? t('edit_closure') : t('new_closure'), `<button class="link strong ${valid ? '' : 'dim'}" data-act="h-save" ${valid ? '' : 'disabled'}>${t('save')}</button>`)}
+    <div class="body">
+      <section class="group gap0"><label class="row"><span class="lbl">${t('name')}</span>
+        <input class="field" data-in="h-name" value="${esc(h.name)}" placeholder="${t('closure_placeholder')}" autocomplete="off" maxlength="40"></label></section>
+      <h3 class="gh">${t('closed_from')}</h3>
+      <section class="group">
+        <label class="row"><span class="lbl">${t('date')}</span><input class="field date" type="date" data-in="h-from" value="${esc(h.fromDate)}"></label>
+        <label class="row"><span class="lbl">${t('shift')}</span><select class="field select" data-in="h-fromslot">${opt(h.fromSlot)}</select></label>
+      </section>
+      <p class="foot left">${t('from_hint')}</p>
+      <h3 class="gh">${t('reopens')}</h3>
+      <section class="group">
+        <label class="row"><span class="lbl">${t('date')}</span><input class="field date" type="date" data-in="h-to" value="${esc(h.toDate)}"></label>
+        <label class="row"><span class="lbl">${t('shift')}</span><select class="field select" data-in="h-toslot">${opt(h.toSlot)}</select></label>
+      </section>
+      <p class="foot left">${t('to_hint')}</p>
+      <section class="group pad note">${summary}</section>
+      ${h.id ? `<section class="group gap"><button class="row tap danger center" data-act="h-delete"><span class="row-main"><span class="row-title">${t('delete_closure')}</span></span></button></section>` : ''}
+    </div>`;
+  }
+
   function currentSheetHtml() {
     const top = ui.stack[ui.stack.length - 1];
     if (!top) return '';
     if (top.type === 'day') return daySheet(top.d);
     if (top.type === 'person') return personSheet(top.id);
     if (top.type === 'pattern') return patternSheet();
+    if (top.type === 'closures') return closuresSheet(top.id);
+    if (top.type === 'holiday') return holidaySheet();
     return '';
   }
 
@@ -541,7 +688,7 @@
     };
     let p = person(d.personId);
     if (!p) {
-      p = { id: uid(), name: d.pname.trim() || '', color: PERSON_COLORS[state.people.length % PERSON_COLORS.length], schedules: [], overrides: {} };
+      p = { id: uid(), name: d.pname.trim() || '', color: PERSON_COLORS[state.people.length % PERSON_COLORS.length], schedules: [], overrides: {}, weekly: {}, holidays: [] };
       state.people.push(p);
       state.activeId = p.id;
     }
@@ -578,7 +725,7 @@
       case 'day': openSheet({ type: 'day', d: el.dataset.d }); break;
       case 'override': {
         const p = active();
-        const base = shiftOn(p, el.dataset.d).base;
+        const base = shiftOn(p, el.dataset.d).auto;
         if (v === base) delete p.overrides[el.dataset.d]; else p.overrides[el.dataset.d] = v;
         save(); render(); break;
       }
@@ -621,6 +768,44 @@
         p.schedules = p.schedules.filter((x) => x.id !== draft.entryId);
         save(); draft = null; ui.stack.pop(); render(); break;
       }
+      case 'closures-open': openSheet({ type: 'closures', id: el.dataset.id }); break;
+      case 'pop': popSheet(); break;
+      case 'pop-holiday': hdraft = null; popSheet(); break;
+      case 'w-cell': {
+        const p = person(ui.stack[ui.stack.length - 1].id);
+        const dow = el.dataset.dow;
+        const cur = p.weekly[dow] || [];
+        p.weekly[dow] = cur.includes(el.dataset.t) ? cur.filter((x) => x !== el.dataset.t) : cur.concat(el.dataset.t);
+        save(); render(); break;
+      }
+      case 'w-row': {
+        const p = person(ui.stack[ui.stack.length - 1].id);
+        const dow = el.dataset.dow;
+        const cols = [...document.querySelectorAll(`.wm-cell[data-dow="${dow}"]`)].map((c) => c.dataset.t);
+        const cur = p.weekly[dow] || [];
+        p.weekly[dow] = cols.every((c) => cur.includes(c)) ? cur.filter((x) => !cols.includes(x)) : [...new Set(cur.concat(cols))];
+        save(); render(); break;
+      }
+      case 'h-new': hdraft = newHoliday(ui.stack[ui.stack.length - 1].id); openSheet({ type: 'holiday' }); break;
+      case 'h-edit': {
+        const pid = ui.stack[ui.stack.length - 1].id;
+        hdraft = newHoliday(pid, person(pid).holidays.find((x) => x.id === el.dataset.id));
+        openSheet({ type: 'holiday' }); break;
+      }
+      case 'h-save': {
+        const p = person(hdraft.personId);
+        const { personId, ...h } = hdraft;
+        if (!(pos(h.toDate, h.toSlot) > pos(h.fromDate, h.fromSlot))) break;
+        h.name = h.name.trim();
+        if (h.id) p.holidays = p.holidays.map((x) => (x.id === h.id ? h : x)); else p.holidays.push({ ...h, id: uid() });
+        p.holidays.sort((x, y) => (x.fromDate < y.fromDate ? -1 : 1));
+        save(); hdraft = null; ui.stack.pop(); render(); break;
+      }
+      case 'h-delete': {
+        const p = person(hdraft.personId);
+        p.holidays = p.holidays.filter((x) => x.id !== hdraft.id);
+        save(); hdraft = null; ui.stack.pop(); render(); break;
+      }
       case 'export': exportData(); break;
       case 'import': { const f = document.getElementById('import-file'); if (f) f.click(); break; }
       default: break;
@@ -640,6 +825,17 @@
     else if (k === 'draft-name') draft.name = el.value;
     else if (k === 'draft-from') { if (el.value) { draft.from = el.value; renderSheet(); const f = document.querySelector('.sheet [data-in="draft-from"]'); if (f) f.focus(); } }
     else if (k === 'draft-offset') { draft.offset = Number(el.value); renderSheet(); }
+    else if (k === 'h-name') hdraft.name = el.value;
+    else if (k === 'h-from' || k === 'h-to') {
+      if (!el.value) return;
+      if (k === 'h-from') {
+        hdraft.fromDate = el.value;
+        if (pos(hdraft.toDate, hdraft.toSlot) <= pos(hdraft.fromDate, hdraft.fromSlot)) { hdraft.toDate = ymd(addDays(parse(el.value), 1)); hdraft.toSlot = 'start'; }
+      } else hdraft.toDate = el.value;
+      renderSheet(); const f = document.querySelector(`.sheet [data-in="${k}"]`); if (f) f.focus();
+    }
+    else if (k === 'h-fromslot') { hdraft.fromSlot = el.value; renderSheet(); }
+    else if (k === 'h-toslot') { hdraft.toSlot = el.value; renderSheet(); }
   });
 
   document.addEventListener('change', (ev) => {

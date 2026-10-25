@@ -211,6 +211,21 @@ input[type="date"].field { min-height: 34px; }
   .sheet { border-radius: 20px; max-height: 86%; }
 }
 
+/* closures */
+.day.closed { box-shadow: inset 0 0 0 1px var(--line); }
+.lg-closed { width: 18px; height: 14px; border-radius: 5px; box-shadow: inset 0 0 0 1px var(--fg-3); display: inline-block; }
+.wm { display: grid; grid-template-columns: minmax(0, 1fr) repeat(var(--cols), 58px); gap: 6px 4px; align-items: center; }
+.wm-h { display: flex; flex-direction: column; align-items: center; gap: 2px; padding-bottom: 4px; }
+.wm-h small { font-size: 10px; color: var(--fg-2); text-align: center; line-height: 1.1; overflow-wrap: anywhere; }
+.wm-day { padding: 9px 4px; font-size: 16px; border-radius: 8px; }
+.wm-day:active { background: var(--fill); }
+.wm-cell { height: 38px; border-radius: 11px; background: var(--fill); display: grid; place-items: center; color: #fff; margin-inline: auto; width: 52px; }
+.wm-cell.on { background: var(--danger); }
+.wm-cell:active { transform: scale(0.94); }
+.note { padding: 14px 16px; font-size: 15px; color: var(--fg-2); text-align: center; margin-top: 18px; }
+.link.dim, .link:disabled { opacity: 0.35; cursor: default; }
+.group.gap0 { margin-top: 10px; }
+
 /* day sheet */
 .hero { text-align: center; padding: 10px 0 4px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .hero-icon { width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 16%, transparent); margin-bottom: 8px; }

@@ -5,6 +5,7 @@ A small offline-first PWA for shift workers. Pick a shift pattern, say when it s
 - Presets (4 on 4 off, 2-2-3, rotations) or a custom repeating cycle
 - Change pattern from any date; earlier dates keep the old pattern
 - Several people, switch between them
+- Workplace closures: weekly closed shifts and holidays (closed from one shift to another)
 - Light, dark or automatic theme; English and Romanian
 - Data stays in the browser (localStorage) and every file is cached for offline use
 - Backup/restore as JSON from Settings
