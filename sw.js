@@ -2,7 +2,7 @@
  * and refreshed quietly in the background. Bump CACHE when you change files so
  * old copies are cleared. Requests bypass the browser's HTTP cache so a new
  * deploy is picked up straight away. */
-const CACHE = 'shifts-v1.4.0';
+const CACHE = 'shifts-v1.4.1';
 const ASSETS = [
   './',
   'index.html',
