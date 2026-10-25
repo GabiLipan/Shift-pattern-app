@@ -221,7 +221,7 @@
     const what = sh.closed ? `${t('closed')}, ${shiftName(sh.base)}` : sh.type ? shiftName(sh.type) : t('no_pattern');
     const label = `${fmt({ weekday: 'long', day: 'numeric', month: 'long' }).format(d)}, ${what}`;
     return `<button class="${cls}" style="${work ? `--c:${state.settings.colors[sh.type]}` : ''}" data-act="day" data-d="${s}" aria-label="${esc(label)}">
-      <span class="n">${d.getDate()}</span>${work ? icon(sh.type, 22) : sh.closed ? icon(sh.base, 22, 'var(--fg-3)') : ''}</button>`;
+      <span class="n">${d.getDate()}</span>${work ? icon(sh.type, 20) : sh.closed ? icon(sh.base, 20, 'var(--fg-3)') : ''}</button>`;
   }
 
   function renderCalendar() {

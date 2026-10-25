@@ -91,7 +91,7 @@ h1 { min-width: 0; font-size: clamp(25px, 7.4vw, 30px); font-weight: 700; letter
   max-width: 180px;
 }
 .chip span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chip.on { background: var(--fg); color: var(--bg); }
+.chip.on { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); font-weight: 600; }
 .chip.add { padding: 0; width: 32px; height: 32px; justify-content: center; color: var(--accent); }
 .avatar {
   flex: none; display: inline-grid; place-items: center; border-radius: 50%;
@@ -102,14 +102,14 @@ h1 { min-width: 0; font-size: clamp(25px, 7.4vw, 30px); font-weight: 700; letter
 .cal { background: var(--surface); border-radius: 18px; padding: 10px 8px 8px; box-shadow: var(--shadow); touch-action: pan-y; }
 .wk { display: grid; grid-template-columns: repeat(7, 1fr); padding-bottom: 6px; }
 .wk span { text-align: center; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-2); }
-.grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px 4px; }
 .day {
-  position: relative; aspect-ratio: 1 / 1.12; min-height: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; padding-top: 5px;
+  position: relative; aspect-ratio: 1 / 1.3; min-height: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 6px; padding-top: 7px;
   border-radius: 12px; text-align: center;
 }
 .day .n { font-size: 15px; font-weight: 500; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; font-variant-numeric: tabular-nums; }
-.day .ico { height: 22px; }
+.day .ico { height: 20px; }
 .day:not(.work) .n { color: var(--fg); }
 .day.work { background: color-mix(in srgb, var(--c) 15%, transparent); }
 .day.out { opacity: 0.38; }
