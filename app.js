@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.2.0';
+  const VERSION = '1.3.0';
   const KEY = 'shifts.v1';
   const TYPES = ['morning', 'afternoon', 'night', 'day', 'off'];
   const SWATCHES = ['#FF9F0A', '#FFC400', '#FF453A', '#FF375F', '#BF5AF2', '#5E5CE6', '#0A84FF', '#32ADE6', '#30D158', '#8E8E93'];
@@ -225,21 +225,27 @@
       <span class="n">${d.getDate()}</span>${work ? icon(sh.type, 20) : sh.closed ? icon(sh.base, 20, 'var(--fg-3)') : ''}</button>`;
   }
 
-  function renderCalendar() {
-    const p = active();
-    const m = ui.month;
-    const title = cap(fmt({ month: 'long', year: 'numeric' }).format(m));
+  const monthAt = (m, delta) => new Date(m.getFullYear(), m.getMonth() + delta, 1, 12);
+  const monthTitle = (m) => cap(fmt({ month: 'long', year: 'numeric' }).format(m));
+
+  function monthCells(p, m) {
     const first = new Date(m.getFullYear(), m.getMonth(), 1, 12);
     const lead = (first.getDay() - state.settings.weekStart + 7) % 7;
     const dim = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
     const total = Math.ceil((lead + dim) / 7) * 7;
     let cells = '';
-    if (p) {
-      for (let i = 0; i < total; i++) {
-        const d = addDays(first, i - lead);
-        cells += dayCell(p, d, d.getMonth() === m.getMonth());
-      }
+    for (let i = 0; i < total; i++) {
+      const d = addDays(first, i - lead);
+      cells += dayCell(p, d, d.getMonth() === m.getMonth());
     }
+    return cells;
+  }
+
+  function renderCalendar() {
+    const p = active();
+    const m = ui.month;
+    const title = monthTitle(m);
+    const pane = (delta) => `<div class="pane" ${delta ? 'inert aria-hidden="true"' : ''}><div class="grid">${p ? monthCells(p, monthAt(m, delta)) : ''}</div></div>`;
     const chips = state.people.map((x) => `
       <button class="chip ${x.id === state.activeId ? 'on' : ''}" data-act="person" data-id="${x.id}">${avatar(x, 22)}<span>${esc(x.name || '?')}</span></button>`).join('');
 
@@ -271,7 +277,7 @@
     return `
     <header class="head">
       <div class="head-row">
-        <h1>${esc(title)}</h1>
+        <h1 id="mtitle">${esc(title)}</h1>
         <div class="nav">
           <button class="btn-icon" data-act="prev" aria-label="${t('prev_month')}">${UI_ICONS.left}</button>
           <button class="btn-text" data-act="today">${t('today')}</button>
@@ -282,7 +288,7 @@
     </header>
     <section class="cal" id="cal">
       <div class="wk">${weekdayLabels().map((w) => `<span>${esc(w)}</span>`).join('')}</div>
-      <div class="grid">${cells}</div>
+      <div class="vp" id="cal-vp"><div class="track">${pane(-1)}${pane(0)}${pane(1)}</div></div>
     </section>
     <div class="legend">${legend}</div>
     ${summary}`;
@@ -723,7 +729,8 @@
 
   /* ---------- events ---------- */
   function shiftMonth(delta) {
-    ui.month = new Date(ui.month.getFullYear(), ui.month.getMonth() + delta, 1, 12);
+    if (calCtl) { calCtl.go(delta); return; }
+    ui.month = monthAt(ui.month, delta);
     render();
   }
 
@@ -867,19 +874,94 @@
     }
   });
 
-  let swipeX = null;
+  /* Month carousel: previous, current and next month sit side by side and follow the finger. */
+  let calCtl = null;
+  let swallowClick = 0;
+  const EASE = 'cubic-bezier(0.32, 0.72, 0, 1)';
+  const REST = 'translateX(-33.3333%)';
+
   function bindSwipe() {
-    const cal = document.getElementById('cal');
-    if (!cal) return;
-    cal.addEventListener('touchstart', (e) => { swipeX = [e.touches[0].clientX, e.touches[0].clientY]; }, { passive: true });
-    cal.addEventListener('touchend', (e) => {
-      if (!swipeX) return;
-      const dx = e.changedTouches[0].clientX - swipeX[0];
-      const dy = e.changedTouches[0].clientY - swipeX[1];
-      swipeX = null;
-      if (Math.abs(dx) > 55 && Math.abs(dy) < 45) shiftMonth(dx < 0 ? 1 : -1);
-    }, { passive: true });
+    calCtl = null;
+    const vp = document.getElementById('cal-vp');
+    if (!vp) return;
+    const track = vp.firstElementChild;
+    const panes = [...track.children];
+    const still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const syncHeight = () => { vp.style.height = `${panes[1].offsetHeight}px`; };
+    syncHeight();
+    let busy = false;
+    let start = null;
+    let dragging = false;
+    let dx = 0;
+
+    function go(dir) {
+      if (busy) return;
+      busy = true;
+      const ms = still ? 0 : 340;
+      track.style.transition = ms ? `transform ${ms}ms ${EASE}` : 'none';
+      track.style.transform = dir === 0 ? REST : dir > 0 ? 'translateX(-66.6667%)' : 'translateX(0)';
+      if (dir !== 0) {
+        const target = panes[1 + dir];
+        vp.style.transition = ms ? `height ${ms}ms ${EASE}` : 'none';
+        vp.style.height = `${target.offsetHeight}px`;
+        const title = document.getElementById('mtitle');
+        if (title) title.textContent = monthTitle(monthAt(ui.month, dir));
+      }
+      setTimeout(() => {
+        busy = false;
+        if (dir !== 0) { ui.month = monthAt(ui.month, dir); render(); }
+        else { vp.style.transition = 'none'; }
+      }, ms);
+    }
+    calCtl = { go };
+
+    vp.addEventListener('pointerdown', (e) => {
+      if (busy || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      start = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId };
+      dragging = false;
+      dx = 0;
+    });
+    vp.addEventListener('pointermove', (e) => {
+      if (!start || e.pointerId !== start.id) return;
+      dx = e.clientX - start.x;
+      const dy = e.clientY - start.y;
+      if (!dragging) {
+        if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+          dragging = true;
+          try { vp.setPointerCapture(e.pointerId); } catch (err) { /* optional */ }
+          track.style.transition = 'none';
+        } else return;
+      }
+      const w = vp.clientWidth;
+      const x = Math.max(-w, Math.min(w, dx));
+      track.style.transform = `translateX(calc(-33.3333% + ${x}px))`;
+      // ease the card height toward the month being revealed
+      const dir = x < 0 ? 1 : -1;
+      const from = panes[1].offsetHeight;
+      const to = panes[1 + dir].offsetHeight;
+      vp.style.transition = 'none';
+      vp.style.height = `${from + (to - from) * Math.min(Math.abs(x) / w, 1)}px`;
+    });
+    const finish = (e) => {
+      if (!start || e.pointerId !== start.id) return;
+      const moved = dragging;
+      const velocity = dx / Math.max(performance.now() - start.t, 1);
+      start = null;
+      if (!moved) return;
+      swallowClick = performance.now();
+      const w = vp.clientWidth;
+      const far = Math.abs(dx) > w * 0.28;
+      const flick = Math.abs(velocity) > 0.45 && Math.abs(dx) > 24;
+      go(e.type !== 'pointercancel' && (far || flick) ? (dx < 0 ? 1 : -1) : 0);
+    };
+    vp.addEventListener('pointerup', finish);
+    vp.addEventListener('pointercancel', finish);
+    window.addEventListener('resize', () => { if (!busy && document.getElementById('cal-vp') === vp) syncHeight(); });
   }
+
+  document.addEventListener('click', (e) => {
+    if (performance.now() - swallowClick < 350) { e.stopPropagation(); e.preventDefault(); swallowClick = 0; }
+  }, true);
 
   /* ---------- backup ---------- */
   function exportData() {

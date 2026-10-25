@@ -99,7 +99,10 @@ h1 { min-width: 0; font-size: clamp(25px, 7.4vw, 30px); font-weight: 700; letter
 }
 
 /* calendar */
-.cal { background: var(--surface); border-radius: 18px; padding: 10px 8px 8px; box-shadow: var(--shadow); touch-action: pan-y; }
+.cal { background: var(--surface); border-radius: 18px; padding: 10px 8px 8px; box-shadow: var(--shadow); overflow: hidden; }
+.vp { margin: 0 -8px; overflow: hidden; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.track { display: flex; width: 300%; transform: translateX(-33.3333%); will-change: transform; align-items: flex-start; }
+.pane { flex: 0 0 33.3333%; min-width: 0; padding: 0 8px; }
 .wk { display: grid; grid-template-columns: repeat(7, 1fr); padding-bottom: 6px; }
 .wk span { text-align: center; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-2); }
 .grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px 4px; }
