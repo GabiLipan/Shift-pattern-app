@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.4.1';
+  const VERSION = '1.4.2';
   const KEY = 'shifts.v1';
   const TYPES = ['morning', 'afternoon', 'night', 'day', 'off'];
   const SWATCHES = ['#FF9F0A', '#FFC400', '#FF453A', '#FF375F', '#BF5AF2', '#5E5CE6', '#0A84FF', '#32ADE6', '#30D158', '#8E8E93'];
